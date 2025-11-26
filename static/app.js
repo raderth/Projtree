@@ -1,4 +1,3 @@
-// Global state
 let tasks = [];
 let selectedTask = null;
 let currentDetailTask = null;
@@ -30,14 +29,11 @@ const statusLabels = {
     'integrated': 'Integrated'
 };
 
-// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     loadTasks();
 });
 
-function setupEventListeners() {
-    // Mode selector
     document.querySelectorAll('.mode-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -47,7 +43,6 @@ function setupEventListeners() {
         });
     });
 
-    // Filter tabs
     document.querySelectorAll('.filter-tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
             document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
@@ -62,14 +57,14 @@ function setupEventListeners() {
         renderTaskList(e.target.value);
     });
 
-    // Close context menu on click outside
+    //close context menu on click outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.context-menu')) {
             document.getElementById('contextMenu').style.display = 'none';
         }
     });
 
-    // Close dependency search results when clicking outside
+    //close dependency search results when clicking outside
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.dependency-search-container')) {
             document.querySelectorAll('.dependency-search-results').forEach(el => {
@@ -98,7 +93,6 @@ async function loadTasks() {
     const resp = await fetch('/api/tasks');
     tasks = await resp.json();
     
-    // Ensure all tasks have the required properties
     tasks.forEach(task => {
         if (!task.parent_ids) task.parent_ids = [];
         if (!task.child_ids) task.child_ids = [];
@@ -127,7 +121,6 @@ function renderTaskList(searchQuery = '') {
     
     let filteredTasks = [...tasks];
     
-    // Apply search
     if (searchQuery) {
         const query = searchQuery.toLowerCase();
         filteredTasks = filteredTasks.filter(t => 
@@ -136,7 +129,6 @@ function renderTaskList(searchQuery = '') {
         );
     }
     
-    // Define status priority (lower number = higher priority)
     const statusPriority = {
         'started': 0,
         'functional': 1, 
@@ -145,30 +137,25 @@ function renderTaskList(searchQuery = '') {
         'not_started': 4
     };
     
-    // Sort tasks according to requirements
     filteredTasks.sort((a, b) => {
-        // First: My tasks (current user is assignee)
         const aIsMine = a.assignee_id === current_user_id;
         const bIsMine = b.assignee_id === current_user_id;
         
         if (aIsMine && !bIsMine) return -1;
         if (!aIsMine && bIsMine) return 1;
         
-        // Second: Unassigned tasks
         const aIsUnassigned = !a.assignee_id;
         const bIsUnassigned = !b.assignee_id;
         
         if (aIsUnassigned && !bIsUnassigned) return -1;
         if (!aIsUnassigned && bIsUnassigned) return 1;
         
-        // Third: Both are either my tasks or unassigned - sort by status
         if ((aIsMine && bIsMine) || (aIsUnassigned && bIsUnassigned)) {
             const aPriority = statusPriority[a.status] ?? 5;
             const bPriority = statusPriority[b.status] ?? 5;
             return aPriority - bPriority;
         }
         
-        // Fourth: Both assigned to others - sort by status
         const aPriority = statusPriority[a.status] ?? 5;
         const bPriority = statusPriority[b.status] ?? 5;
         return aPriority - bPriority;
@@ -218,7 +205,6 @@ function renderTaskList(searchQuery = '') {
         taskList.appendChild(item);
     });
     
-    // Debug: Log the sorted tasks to verify ordering
     console.log('Sorted tasks:', filteredTasks.map(t => ({
         id: t.id,
         title: t.title,
@@ -265,7 +251,6 @@ function selectTaskFromList(taskId) {
     selectedTask = taskId;
     renderTaskList();
     
-    // Always update the detail panel when a task is selected from the list
     viewTaskDetails();
     
     if (currentMode === 'graph') {
@@ -293,7 +278,6 @@ function renderGraph(taskId) {
     const container = document.getElementById('graphContainer');
     container.innerHTML = '';
     
-    // Create SVG overlay for connections
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.style.position = 'absolute';
     svg.style.top = '0';
@@ -304,7 +288,6 @@ function renderGraph(taskId) {
     svg.style.zIndex = '1';
     container.appendChild(svg);
     
-    // Build hierarchy: selected task at top, then parents at their deepest level
     const levels = [];
     const taskToLevel = new Map();
     
@@ -341,7 +324,6 @@ function renderGraph(taskId) {
         }
     });
     
-    // Render levels
     levels.forEach((level, levelIndex) => {
         const levelDiv = document.createElement('div');
         levelDiv.className = 'graph-level';
@@ -355,15 +337,12 @@ function renderGraph(taskId) {
         container.appendChild(levelDiv);
     });
     
-    // Draw connections after a brief delay to ensure DOM is rendered
     setTimeout(() => drawSVGConnections(levels, taskToLevel, svg), 50);
 }
 
 function drawSVGConnections(levels, taskToLevel, svg) {
-    // Clear previous connections
     svg.innerHTML = '';
     
-    // Create connections between levels
     for (let i = 0; i < levels.length - 1; i++) {
         const currentLevel = levels[i];
         const nextLevel = levels[i + 1];
@@ -394,13 +373,11 @@ function drawSVGConnection(childId, parentId, svg) {
     const parentRect = parentEl.getBoundingClientRect();
     const containerRect = svg.getBoundingClientRect();
     
-    // Calculate positions relative to SVG
     const childX = childRect.left + childRect.width / 2 - containerRect.left;
     const childY = childRect.bottom - containerRect.top;
     const parentX = parentRect.left + parentRect.width / 2 - containerRect.left;
     const parentY = parentRect.top - containerRect.top;
     
-    // Only draw if parent is below child
     if (parentY > childY) {
         const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         line.setAttribute('x1', childX);
@@ -418,10 +395,8 @@ function drawSVGConnection(childId, parentId, svg) {
 function addGraphConnections(levels, taskToLevel) {
     const container = document.getElementById('graphContainer');
     
-    // Clear existing connections
     container.querySelectorAll('.graph-connection-line, .graph-connection-horizontal').forEach(el => el.remove());
     
-    // Create connections between levels
     for (let i = 0; i < levels.length - 1; i++) {
         const currentLevel = levels[i];
         const nextLevel = levels[i + 1];
@@ -430,7 +405,6 @@ function addGraphConnections(levels, taskToLevel) {
             if (childTask.parent_ids) {
                 childTask.parent_ids.forEach(parentId => {
                     const parentLevel = taskToLevel.get(parentId);
-                    // Only draw connection if parent is exactly one level below
                     if (parentLevel === i + 1) {
                         const parentTask = levels[parentLevel].find(t => t.id === parentId);
                         if (parentTask) {
@@ -449,25 +423,21 @@ function createConnection(childId, parentId) {
     
     if (!childEl || !parentEl) return;
     
-    // Get positions relative to the graph container
     const container = document.getElementById('graphContainer');
     
     const childRect = childEl.getBoundingClientRect();
     const parentRect = parentEl.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
     
-    // Calculate positions relative to container
     const childX = childRect.left + childRect.width / 2 - containerRect.left;
     const childY = childRect.bottom - containerRect.top;
     const parentX = parentRect.left + parentRect.width / 2 - containerRect.left;
     const parentY = parentRect.top - containerRect.top;
     
-    // Only draw if parent is below child (which it should be in our hierarchy)
     if (parentY > childY) {
         const line = document.createElement('div');
         line.className = 'graph-connection-line';
         
-        // Position at the center bottom of child
         line.style.left = childX + 'px';
         line.style.top = childY + 'px';
         line.style.height = (parentY - childY) + 'px';
@@ -780,30 +750,25 @@ async function viewTaskDetails() {
     const assignBtn = document.getElementById('assignBtn');
     const unassignBtn = document.getElementById('unassignBtn');
     
-    // Reset both buttons
     assignBtn.style.display = 'none';
     unassignBtn.style.display = 'none';
     
     if (task.assignee) {
         assignmentInfo.textContent = `Assigned to: ${task.assignee}`;
         
-        // Show abandon button if current user is the assignee and task isn't integrated
         if (task.assignee_id === current_user_id && task.status !== 'integrated') {
             unassignBtn.textContent = 'Abandon Task';
             unassignBtn.style.display = 'block';
         } 
-        // Show unassign button for admins or creators
         else if (current_user_role === 'admin' || task.creator_id === current_user_id) {
             unassignBtn.textContent = 'Unassign';
             unassignBtn.style.display = 'block';
         }
         
-        // Never show assign button when task is already assigned
         assignBtn.style.display = 'none';
     } else {
         assignmentInfo.innerHTML = '<span style="color: var(--text-dim);">Unassigned</span>';
         
-        // Show assign button for admins or creators
         if (current_user_role === 'admin' || task.creator_id === current_user_id) {
             assignBtn.style.display = 'block';
         }
@@ -866,7 +831,6 @@ async function viewTaskDetails() {
 
     document.getElementById('taskDetailPanel').classList.add('active');
     
-    // Debug: log the assignment state
     console.log('Assignment debug:', {
         taskId: task.id,
         assignee_id: task.assignee_id,
@@ -1282,7 +1246,6 @@ async function unassignTask() {
     const task = tasks.find(t => t.id === currentDetailTask.id);
     if (!task) return;
     
-    // Determine if this is an "abandon" (current user is assignee) or "unassign" (admin/creator removing someone else)
     const isAbandon = task.assignee_id === current_user_id;
     const actionName = isAbandon ? 'abandon' : 'unassign';
     
@@ -1296,7 +1259,7 @@ async function unassignTask() {
     if (data.success) {
         showFlash(`Task ${actionName}ed successfully`, 'success');
         await loadTasks();
-        await viewTaskDetails(); // Refresh the detail panel
+        await viewTaskDetails();
     } else {
         showFlash(data.message, 'error');
     }
@@ -1311,7 +1274,7 @@ function closeUserManagementModal() {
     document.getElementById('userManagementModal').classList.remove('active');
 }
 
-let currentUsers = []; // Global variable to store users
+let currentUsers = [];
 
 async function loadUsers() {
     const resp = await fetch('/api/users');
@@ -1388,7 +1351,6 @@ async function deleteUser() {
         return;
     }
     
-    // Get the username for the confirmation message
     const username = document.getElementById('editUsername').value;
     
     if (!confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) return;
@@ -1401,13 +1363,12 @@ async function deleteUser() {
     if (data.success) {
         showFlash('User deleted successfully', 'success');
         closeEditUserModal();
-        await loadUsers(); // Refresh the user list
+        await loadUsers();
     } else {
         showFlash(data.message, 'error');
     }
 }
 
-// Utility function to show flash messages
 function showFlash(message, type = 'success') {
     const flash = document.createElement('div');
     flash.className = `flash ${type}`;
@@ -1415,8 +1376,6 @@ function showFlash(message, type = 'success') {
     document.body.appendChild(flash);
     setTimeout(() => flash.remove(), 3000);
 }
-
-// Add CSS animation for pulsing effect
 if (!document.querySelector('#pulse-animation')) {
     const style = document.createElement('style');
     style.id = 'pulse-animation';
