@@ -10,3 +10,5 @@
 
 <h1>Usage</h1>
 <p>First create a parent task, you can then add dependencies which are basically tasks that need to be completed before this task can be done. The first parent task should be something like "project completion"</p>
+<p>Here's an example</p>
+![example](https://github.com/raderth/Projtree/blob/main/example.png?raw=true)
