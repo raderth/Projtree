@@ -1,8 +1,3 @@
-"""
-Hierarchical Task Management System for FPS Game Development
-Flask + SQLAlchemy + SQLite with D3.js visualization
-"""
-
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
