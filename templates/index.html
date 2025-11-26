@@ -1,0 +1,803 @@
+{% extends "base.html" %}
+
+{% block extra_styles %}
+<style>
+    .main-layout {
+        display: flex;
+        height: calc(100vh - 60px);
+        overflow: hidden;
+    }
+
+    .left-panel {
+        width: 300px;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .left-panel-header {
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .filter-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .filter-tab {
+        padding: 6px 12px;
+        border-radius: 4px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
+
+    .filter-tab.active {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 8px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 4px;
+        font-size: 13px;
+    }
+
+    .task-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px;
+    }
+
+    .task-list-item {
+        background: var(--bg);
+        border: 2px solid transparent;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+    }
+
+    .task-list-item:hover {
+        background: #333;
+    }
+
+    .task-list-item.selected {
+        border-color: white;
+    }
+
+    .task-list-item.highlight-started {
+        border-color: #ffd54f;
+    }
+
+    .task-list-item.highlight-functional {
+        border-color: #ff9800;
+    }
+
+    .task-list-item.highlight-documented {
+        border-color: #2196f3;
+    }
+
+    .task-list-item.highlight-integrated {
+        border-color: #4caf50;
+    }
+
+    .task-list-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 6px;
+    }
+
+    .task-list-item-title {
+        font-weight: bold;
+        font-size: 14px;
+        flex: 1;
+        margin-right: 8px;
+    }
+
+    .task-list-item-owner {
+        font-size: 11px;
+        color: var(--text-dim);
+        white-space: nowrap;
+    }
+
+    .task-list-item-desc {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-bottom: 8px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .task-list-item-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .take-btn {
+        padding: 4px 10px;
+        font-size: 11px;
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: opacity 0.2s;
+    }
+
+    .take-btn:hover {
+        opacity: 0.8;
+    }
+
+    .view-container {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .mode-selector {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 100;
+        display: flex;
+        gap: 8px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 4px;
+    }
+
+    .mode-btn {
+        padding: 8px 16px;
+        background: transparent;
+        border: none;
+        color: var(--text-dim);
+        cursor: pointer;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .mode-btn.active {
+        background: var(--accent);
+        color: white;
+    }
+
+    .tree-view, .graph-view {
+        width: 100%;
+        height: 100%;
+        display: none;
+    }
+
+    .tree-view.active, .graph-view.active {
+        display: block;
+    }
+
+    #treeCanvas, #graphCanvas {
+        width: 100%;
+        height: 100%;
+    }
+
+    .graph-view {
+        padding: 80px 40px 40px 40px;
+        overflow: auto;
+        background: var(--bg);
+    }
+
+    .graph-container {
+        min-width: 100%;
+        display: inline-block;
+    }
+
+    .graph-level {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        margin-bottom: 60px;
+        gap: 20px;
+    }
+
+    .graph-node {
+        min-width: 180px;
+        max-width: 220px;
+        background: var(--surface);
+        border: 3px solid;
+        border-radius: 8px;
+        padding: 16px;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+    }
+
+    .graph-node:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .graph-node.selected {
+        border-color: white !important;
+        box-shadow: 0 0 20px rgba(255,255,255,0.3);
+    }
+
+    .graph-node-title {
+        font-weight: bold;
+        font-size: 15px;
+        margin-bottom: 8px;
+        word-wrap: break-word;
+    }
+
+    .graph-node-owner {
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-bottom: 8px;
+    }
+
+    .graph-connection-line {
+        position: absolute;
+        height: 40px;
+        width: 2px;
+        background: var(--border);
+        left: 50%;
+        top: -40px;
+        transform: translateX(-1px);
+    }
+
+    .graph-connection-horizontal {
+        position: absolute;
+        height: 2px;
+        background: var(--border);
+        top: -40px;
+    }
+
+    .empty-state {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        display: none;
+    }
+
+    .empty-state.active {
+        display: block;
+    }
+
+    .context-menu {
+        position: fixed;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 4px 0;
+        min-width: 200px;
+        z-index: 3000;
+        display: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+
+    .context-menu-item {
+        padding: 10px 16px;
+        cursor: pointer;
+        color: var(--text);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+    }
+
+    .context-menu-item:hover {
+        background: var(--bg);
+    }
+
+    .context-menu-separator {
+        height: 1px;
+        background: var(--border);
+        margin: 4px 0;
+    }
+
+    .task-detail-panel {
+        position: absolute;
+        right: 0;
+        top: 0;
+        width: 450px;
+        height: 100%;
+        background: var(--surface);
+        border-left: 1px solid var(--border);
+        transform: translateX(100%);
+        transition: transform 0.3s;
+        z-index: 200;
+        overflow-y: auto;
+        padding: 20px;
+    }
+
+    .task-detail-panel.active {
+        transform: translateX(0);
+    }
+
+    .task-detail-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+    }
+
+    .task-detail-title {
+        font-size: 20px;
+        color: var(--accent);
+        flex: 1;
+    }
+
+    .task-detail-section {
+        margin-bottom: 24px;
+    }
+
+    .task-detail-section h3 {
+        font-size: 14px;
+        color: var(--text-dim);
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+
+    .status-selector {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .status-btn {
+        padding: 6px 12px;
+        border-radius: 4px;
+        border: 2px solid transparent;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .status-btn.active {
+        border-color: white;
+    }
+
+    .relationship-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .relationship-item {
+        background: var(--bg);
+        padding: 8px;
+        border-radius: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .history-item {
+        background: var(--bg);
+        padding: 8px;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        font-size: 13px;
+    }
+
+    .history-item .time {
+        color: var(--text-dim);
+        font-size: 11px;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+    }
+
+    .user-item {
+        background: var(--bg);
+        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .user-info {
+        flex: 1;
+    }
+
+    .user-username {
+        font-weight: bold;
+        margin-bottom: 4px;
+    }
+
+    .user-stats {
+        font-size: 12px;
+        color: var(--text-dim);
+    }
+
+    .user-role {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: bold;
+        margin-right: 8px;
+    }
+
+    .user-role.admin {
+        background: #ff4757;
+        color: white;
+    }
+
+    .user-role.developer {
+        background: #3a86ff;
+        color: white;
+    }
+
+    .user-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .dependency-search-container {
+        position: relative;
+    }
+
+    .dependency-search-input {
+        width: 100%;
+        padding: 10px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 4px;
+    }
+
+    .dependency-search-results {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        max-height: 300px;
+        overflow-y: auto;
+        display: none;
+        z-index: 100;
+        margin-top: 4px;
+    }
+
+    .dependency-search-results.active {
+        display: block;
+    }
+
+    .dependency-search-item {
+        padding: 10px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .dependency-search-item:hover {
+        background: var(--bg);
+    }
+
+    .dependency-search-item:last-child {
+        border-bottom: none;
+    }
+    .graph-view {
+    position: relative;
+    overflow: auto;
+    }
+
+    .graph-container {
+        position: relative;
+        min-width: 100%;
+        display: inline-block;
+    }
+
+    .graph-connection-line {
+        position: absolute;
+        width: 2px;
+        background: var(--border);
+        z-index: 1;
+        pointer-events: none;
+        transform: translateX(-1px); /* Center the line */
+    }
+
+    .graph-level {
+        position: relative;
+        z-index: 2;
+    }
+
+    .graph-node {
+        position: relative;
+        z-index: 3;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main-layout">
+    <!-- Left Panel - Task List -->
+    <div class="left-panel">
+        <div class="left-panel-header">
+            <input type="text" class="search-input" id="taskSearchInput" placeholder="Search tasks...">
+        </div>
+        <div class="task-list" id="taskList">
+            <!-- Task items will be populated here -->
+        </div>
+    </div>
+
+    <!-- Main View Area -->
+    <div class="view-container">
+        <div class="mode-selector">
+            <button class="mode-btn active" data-mode="graph">Graph</button>
+            <button class="mode-btn" data-mode="tree">Tree</button>
+        </div>
+
+        <div class="empty-state" id="emptyState">
+            <div class="empty-state-icon">📋</div>
+            <h2 class="empty-state-title">No Tasks Yet</h2>
+            <p class="empty-state-text">Get started by creating your first task</p>
+            <button class="btn" onclick="showCreateTaskModal()">+ Create First Task</button>
+        </div>
+
+        <!-- Tree View -->
+        <div class="tree-view" id="treeView">
+            <svg id="treeCanvas"></svg>
+        </div>
+
+        <!-- Graph View -->
+        <div class="graph-view active" id="graphView">
+            <div class="graph-container" id="graphContainer">
+                <div style="text-align: center; color: var(--text-dim); padding: 100px 20px;">
+                    Select a task from the left panel to view its hierarchy
+                </div>
+            </div>
+        </div>
+
+        <!-- Task Detail Panel -->
+        <div id="taskDetailPanel" class="task-detail-panel">
+            <div class="task-detail-header">
+                <h2 class="task-detail-title" id="detailTitle"></h2>
+                <button class="close-btn" onclick="closeDetailPanel()">&times;</button>
+            </div>
+
+            <div class="task-detail-section">
+                <h3>Status</h3>
+                <div class="status-selector" id="statusSelector"></div>
+            </div>
+
+            <div class="task-detail-section">
+                <h3>Assignment</h3>
+                <div id="assignmentInfo"></div>
+                <div class="btn-group" style="margin-top: 8px;">
+                    <button class="btn btn-secondary" onclick="showAssignTaskModal()" id="assignBtn" style="display: none;">Assign</button>
+                    <button class="btn btn-danger" onclick="unassignTask()" id="unassignBtn" style="display: none;">Unassign</button>
+                </div>
+            </div>
+
+            <div class="task-detail-section">
+                <h3>Description</h3>
+                <p id="detailDescription"></p>
+            </div>
+
+            <div class="task-detail-section">
+                <h3>Parents</h3>
+                <div class="relationship-list" id="parentsList"></div>
+                <button class="btn btn-secondary" onclick="showAddParentModal()">+ Add Parent</button>
+            </div>
+
+            <div class="task-detail-section">
+                <h3>Dependencies (Children)</h3>
+                <div class="relationship-list" id="childrenList"></div>
+                <button class="btn btn-secondary" onclick="showAddDependencyModal()">+ Add Dependency</button>
+            </div>
+
+            <div class="task-detail-section">
+                <h3>History</h3>
+                <div id="historyList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Context Menu -->
+<div id="contextMenu" class="context-menu">
+    <div class="context-menu-item" onclick="showAddChildModal()">Add Child</div>
+    <div class="context-menu-item" onclick="showAddDependencyModal()">Add Dependency</div>
+    <div class="context-menu-item" onclick="showDocumentationModal()">Documentation</div>
+    <div class="context-menu-item" onclick="showEditTaskModal()">Edit Task</div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" onclick="requestTask()">Take Task</div>
+    <div class="context-menu-separator"></div>
+    <div class="context-menu-item" onclick="deleteTask()" style="color: var(--danger);">Delete Task</div>
+</div>
+
+<!-- All Modals from base template continue here... -->
+<!-- User Management Modal -->
+<div id="userManagementModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>User Management</h2>
+            <button class="close-btn" onclick="closeUserManagementModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="users-list" id="usersList" style="max-height: 400px; overflow-y: auto;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="editUserModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit User</h2>
+            <button class="close-btn" onclick="closeEditUserModal()">&times;</button>
+        </div>
+        <form onsubmit="updateUser(event)">
+            <input type="hidden" id="editUserId">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="editUsername" required>
+            </div>
+            <div class="form-group">
+                <label>Role</label>
+                <select id="editUserRole" required>
+                    <option value="developer">Developer</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="btn-group">
+                <button type="button" class="btn btn-danger" onclick="deleteUser()" style="margin-right: auto;">Delete User</button>
+                <button type="button" class="btn btn-secondary" onclick="closeEditUserModal()">Cancel</button>
+                <button type="submit" class="btn">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Assign Task Modal -->
+<div id="assignTaskModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Assign Task</h2>
+            <button class="close-btn" onclick="closeAssignTaskModal()">&times;</button>
+        </div>
+        <form onsubmit="assignTaskToUser(event)">
+            <input type="hidden" id="assignTaskId">
+            <div class="form-group">
+                <label>Assign to User</label>
+                <select id="assignUserSelect">
+                    <option value="">Unassigned</option>
+                </select>
+            </div>
+            <div class="btn-group">
+                <button type="button" class="btn btn-secondary" onclick="closeAssignTaskModal()">Cancel</button>
+                <button type="submit" class="btn">Assign Task</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Create/Edit Task Modal -->
+<div id="taskModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="taskModalTitle">Create Task</h2>
+            <button class="close-btn" onclick="closeTaskModal()">&times;</button>
+        </div>
+        <form onsubmit="saveTask(event)">
+            <input type="hidden" id="taskId">
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="taskTitle" required>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="taskDescription"></textarea>
+            </div>
+            <button type="submit" class="btn">Save Task</button>
+        </form>
+    </div>
+</div>
+
+<!-- Add Parent Modal -->
+<div id="parentModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Add Parent</h2>
+            <button class="close-btn" onclick="closeParentModal()">&times;</button>
+        </div>
+        <form onsubmit="addParent(event)">
+            <div class="form-group">
+                <label>Search for Parent Task</label>
+                <div class="dependency-search-container">
+                    <input type="text" class="dependency-search-input" id="parentSearchInput" 
+                           placeholder="Type to search..." oninput="filterParentTasks()" required>
+                    <input type="hidden" id="parentTarget" required>
+                    <div class="dependency-search-results" id="parentSearchResults"></div>
+                </div>
+            </div>
+            <button type="submit" class="btn">Add Parent</button>
+        </form>
+    </div>
+</div>
+
+<!-- Add Dependency Modal -->
+<div id="dependencyModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Add Dependency</h2>
+            <button class="close-btn" onclick="closeDependencyModal()">&times;</button>
+        </div>
+        <form onsubmit="addDependency(event)">
+            <div class="form-group">
+                <label>Search for Task to Add as Child</label>
+                <div class="dependency-search-container">
+                    <input type="text" class="dependency-search-input" id="dependencySearchInput" 
+                           placeholder="Type to search..." oninput="filterDependencyTasks()" required>
+                    <input type="hidden" id="dependencyTarget" required>
+                    <div class="dependency-search-results" id="dependencySearchResults"></div>
+                </div>
+            </div>
+            <button type="submit" class="btn">Add Dependency</button>
+        </form>
+    </div>
+</div>
+
+<!-- Warning Modal -->
+<div id="warningModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 style="color: var(--warning);">⚠️ Warning</h2>
+            <button class="close-btn" onclick="closeWarningModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p id="warningMessage" style="margin-bottom: 20px;"></p>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-secondary" onclick="closeWarningModal()">Cancel</button>
+            <button class="btn" onclick="confirmWarningAction()">Proceed Anyway</button>
+        </div>
+    </div>
+</div>
+
+<!-- Documentation Modal -->
+<div id="docModal" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-header">
+            <h2>Documentation</h2>
+            <button class="close-btn" onclick="closeDocumentationModal()">&times;</button>
+        </div>
+        <div class="form-group">
+            <textarea id="docEditor" style="min-height: 300px; font-family: 'Consolas', monospace;"></textarea>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-secondary" onclick="closeDocumentationModal()">Close</button>
+            <button class="btn" onclick="saveDocumentation()">💾 Save</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Game Task Manager{% endblock %}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --accent: #2E86AC;
+            --bg: #1a1a1a;
+            --surface: #2a2a2a;
+            --border: #3a3a3a;
+            --text: #e0e0e0;
+            --text-dim: #999;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --danger: #f44336;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        .navbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 20px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+        }
+
+        .navbar h1 {
+            font-size: 20px;
+            color: var(--accent);
+        }
+
+        .navbar-right {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.8;
+        }
+
+        .btn-secondary {
+            background: var(--surface);
+            border: 1px solid var(--border);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+        }
+
+        .content {
+            margin-top: 60px;
+            height: calc(100vh - 60px);
+            overflow: auto;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 24px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h2 {
+            font-size: 20px;
+            color: var(--accent);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .flash {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 12px 20px;
+            border-radius: 4px;
+            z-index: 3000;
+            animation: slideIn 0.3s;
+        }
+
+        .flash.error {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .flash.success {
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-not_started { background: #555; color: #aaa; }
+        .status-started { background: #ffd54f; color: #000; }
+        .status-functional { background: #ff9800; color: #fff; }
+        .status-documented { background: #2196f3; color: #fff; }
+        .status-integrated { background: #4caf50; color: #fff; }
+    </style>
+    {% block extra_styles %}{% endblock %}
+</head>
+<body data-user-id="{{ current_user.id }}" data-user-role="{{ current_user.role }}">
+    <nav class="navbar">
+        <img src="{{ url_for('static', filename='projtree.svg') }}" alt="Project Tree">
+        <div class="navbar-right">
+            {% if current_user.is_authenticated %}
+                <span style="color: var(--text-dim);">{{ current_user.username }} ({{ current_user.role }})</span>
+                <button class="btn btn-secondary" onclick="showPasswordModal()">Change Password</button>
+                {% if current_user.role == 'admin' %}
+                    <button class="btn btn-secondary" onclick="showAddUserModal()">Add User</button>
+                    <button class="btn btn-secondary" onclick="showUserManagementModal()" id="userManagementBtn">👥 Manage Users</button>
+                {% endif %}
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Password Change Modal -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Change Password</h2>
+                <button class="close-btn" onclick="closePasswordModal()">&times;</button>
+            </div>
+            <form onsubmit="changePassword(event)">
+                <div class="form-group">
+                    <label>Current Password</label>
+                    <input type="password" id="oldPassword" required>
+                </div>
+                <div class="form-group">
+                    <label>New Password</label>
+                    <input type="password" id="newPassword" required>
+                </div>
+                <button type="submit" class="btn">Change Password</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add User Modal (Admin) -->
+    {% if current_user.is_authenticated and current_user.role == 'admin' %}
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add User</h2>
+                <button class="close-btn" onclick="closeAddUserModal()">&times;</button>
+            </div>
+            <form onsubmit="addUser(event)">
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="newUsername" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" id="newUserPassword" required>
+                </div>
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="newUserRole">
+                        <option value="developer">Developer</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn">Add User</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+        
+        function showPasswordModal() {
+            document.getElementById('passwordModal').classList.add('active');
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordModal').classList.remove('active');
+        }
+
+        function showAddUserModal() {
+            document.getElementById('addUserModal').classList.add('active');
+        }
+
+        function closeAddUserModal() {
+            document.getElementById('addUserModal').classList.remove('active');
+        }
+
+        async function changePassword(e) {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('old_password', document.getElementById('oldPassword').value);
+            formData.append('new_password', document.getElementById('newPassword').value);
+
+            const resp = await fetch('/change_password', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+            
+            if (data.success) {
+                showFlash('Password changed successfully', 'success');
+                closePasswordModal();
+                document.getElementById('oldPassword').value = '';
+                document.getElementById('newPassword').value = '';
+            } else {
+                showFlash(data.message, 'error');
+            }
+        }
+
+        async function addUser(e) {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('username', document.getElementById('newUsername').value);
+            formData.append('password', document.getElementById('newUserPassword').value);
+            formData.append('role', document.getElementById('newUserRole').value);
+
+            const resp = await fetch('/admin/add_user', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+            
+            if (data.success) {
+                showFlash('User added successfully', 'success');
+                closeAddUserModal();
+                document.getElementById('newUsername').value = '';
+                document.getElementById('newUserPassword').value = '';
+            } else {
+                showFlash(data.message, 'error');
+            }
+        }
+
+        function showFlash(message, type = 'success') {
+            const flash = document.createElement('div');
+            flash.className = `flash ${type}`;
+            flash.textContent = message;
+            document.body.appendChild(flash);
+            setTimeout(() => flash.remove(), 3000);
+        }
+    </script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>
